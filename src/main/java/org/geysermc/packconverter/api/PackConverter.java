@@ -48,19 +48,23 @@ import java.util.zip.ZipFile;
 public class PackConverter {
 
     @Getter
+    private final Path output;
+
+    @Getter
+    private final Path tmpDir;
+
+    @Getter
     private final Map<String, Int2ObjectMap<String>> customModelData = new HashMap<>();
 
-    private Path input;
-    private Path output;
-
-    private Path tmpDir;
+    @Getter @Setter
+    private BehaviorPack behaviorPack;
 
     @Setter
     private OnLogListener onLogListener;
 
     public PackConverter(Path input, Path output) throws IOException {
-        this.input = input;
         this.output = output;
+        this.behaviorPack = new BehaviorPack(this);
 
         // Load any image plugins
         ImageIO.scanForPlugins();
@@ -68,7 +72,9 @@ public class PackConverter {
         // Extract the zip to a temp location
         // This is quite slow, maybe try and find a faster method?
         tmpDir = input.toAbsolutePath().getParent().resolve(input.getFileName() + "_mcpack/");
+        tmpDir.toFile().mkdir();
         ZipFile zipFile = new ZipFile(input.toFile());
+        Path resourcesDir = tmpDir.resolve("resources");
 
         ZipEntry entry;
         final Enumeration<? extends ZipEntry> entries = zipFile.entries();
@@ -76,7 +82,7 @@ public class PackConverter {
             entry = entries.nextElement();
 
             if (!entry.isDirectory()) {
-                File newFile = tmpDir.resolve(entry.getName()).toFile();
+                File newFile = resourcesDir.resolve(entry.getName()).toFile();
                 newFile.getParentFile().mkdirs();
 
                 InputStream fileStream = zipFile.getInputStream(entry);
@@ -99,6 +105,7 @@ public class PackConverter {
      */
     public void convert() {
         List<AbstractConverter> additionalConverters = new ArrayList<>();
+        Path resources = tmpDir.resolve("resources");
 
         for (Class<? extends AbstractConverter> converterClass : ConverterHandler.converterList) {
             try {
@@ -106,7 +113,7 @@ public class PackConverter {
 
                 AbstractConverter converter;
                 for (Object[] data : defaultData) {
-                    converter = converterClass.getDeclaredConstructor(PackConverter.class, Path.class, Object[].class).newInstance(this, tmpDir, data);
+                    converter = converterClass.getDeclaredConstructor(PackConverter.class, Path.class, Object[].class).newInstance(this, resources, data);
 
                     additionalConverters.addAll(converter.convert());
                 }
@@ -122,9 +129,12 @@ public class PackConverter {
      * Convert the temporary folder into the output zip
      */
     public void pack() {
-        ZipUtils zipUtils = new ZipUtils(this, tmpDir.toFile());
+        ZipUtils zipUtils = new ZipUtils(this, tmpDir.resolve("resources").toFile());
         zipUtils.generateFileList();
         zipUtils.zipIt(output.toString());
+        if (behaviorPack.isEnabled()) {
+            behaviorPack.pack();
+        }
     }
 
     /**

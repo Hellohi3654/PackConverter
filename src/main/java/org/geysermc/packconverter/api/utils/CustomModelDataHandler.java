@@ -26,6 +26,7 @@
 
 package org.geysermc.packconverter.api.utils;
 
+import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -53,24 +54,20 @@ public class CustomModelDataHandler {
         ObjectNode itemComponent = mapper.createObjectNode();
         // Define which texture in item_texture.json this should use. We just set it to the "clean identifier"
         itemComponent.put("minecraft:icon", identifier.replace("geysercmd:", ""));
-        // TODO: Apply components based off the original item
-        // TODO: Components tell Bedrock how the item operates, how much you can stack, can you eat it, etc
-        // TODO: We can probably generate this from the mappings-generator as the Bedrock vanilla behavior pack doesn't define every item
-        itemComponent.put("minecraft:render_offsets", "tools");
         itemData.set("components", itemComponent);
         item.set("minecraft:item", itemData);
 
         // Create, if necessary, the folder that stores all item information
-        File itemJsonFile = storage.resolve("items").toFile();
-        if (!itemJsonFile.exists()) {
-            itemJsonFile.mkdir();
+        File itemJsonPath = storage.resolve("items").toFile();
+        if (!itemJsonPath.exists()) {
+            itemJsonPath.mkdir();
         }
 
         // Write our item information
-        Path path = itemJsonFile.toPath().resolve(filePath.replace("item/", "") + ".json");
+        Path path = itemJsonPath.toPath().resolve(filePath.replace("item/", "") + ".json");
         try (OutputStream outputStream = Files.newOutputStream(path,
                 StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.CREATE)) {
-            mapper.writer().writeValue(outputStream, item);
+            mapper.writer(new DefaultPrettyPrinter()).writeValue(outputStream, item);
         } catch (IOException e) {
             e.printStackTrace();
             return null;

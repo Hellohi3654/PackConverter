@@ -66,6 +66,15 @@ public class CustomModelDataConverter extends AbstractConverter {
 
             ObjectMapper mapper = new ObjectMapper();
 
+            JsonNode itemInformation;
+            try {
+                InputStream stream = PackConverter.class.getResourceAsStream("/item_information.json");
+                itemInformation = mapper.readTree(stream);
+            } catch (IOException e) {
+                e.printStackTrace();
+                return new ArrayList<>();
+            }
+
             // Create the texture_data file that will map all textures
             ObjectNode textureData = mapper.createObjectNode();
             textureData.put("resource_pack_name", "geysercmd");
@@ -76,17 +85,29 @@ public class CustomModelDataConverter extends AbstractConverter {
 
                 JsonNode node = mapper.readTree(stream);
                 if (node.has("overrides")) {
+                    JsonNode itemJsonInfo = itemInformation.get(file.getName().replace(".json", ""));
+                    if (itemJsonInfo == null) {
+                        System.out.println("No item information for " + file.getName().replace(".json", ""));
+                        return new ArrayList<>();
+                    }
                     for (JsonNode override : node.get("overrides")) {
                         JsonNode predicate = override.get("predicate");
                         // This is where the custom model data happens - each one is registered here under "predicate"
                         if (predicate.has("custom_model_data")) {
+
+                            if (!packConverter.getBehaviorPack().isEnabled()) {
+                                packConverter.getBehaviorPack().enable();
+                            }
+
+                            String filePath = override.get("model").asText();
                             // The "ID" of the CustomModelData. If the ID is 1, then to get the custom model data
                             // You need to run in Java `/give @s stick{CustomModelData:1}`
                             int id = predicate.get("custom_model_data").asInt();
                             // Get the identifier that we'll register the item with on Bedrock, and create the JSON file
-                            String identifier = CustomModelDataHandler.handleItemData(mapper, storage, override.get("model").asText());
+                            String identifier = CustomModelDataHandler.handleItemData(mapper, storage, filePath);
                             // See if we have registered the vanilla item already
                             Int2ObjectMap<String> data = packConverter.getCustomModelData().getOrDefault(file.getName().replace(".json", ""), null);
+                            packConverter.getBehaviorPack().writeBehaviorPackItem(mapper, filePath, itemJsonInfo);
                             if (data == null) {
                                 // Create a fresh map of Java CustomModelData IDs to Bedrock string identifiers
                                 Int2ObjectMap<String> map = new Int2ObjectOpenHashMap<>();
@@ -99,7 +120,7 @@ public class CustomModelDataConverter extends AbstractConverter {
                             }
 
                             // Create the texture information
-                            ObjectNode textureInfo = CustomModelDataHandler.handleItemTexture(mapper, storage, override.get("model").asText());
+                            ObjectNode textureInfo = CustomModelDataHandler.handleItemTexture(mapper, storage, filePath);
                             if (textureInfo != null) {
                                 // If texture was created, add it to the file where Bedrock will read all textures
                                 allTextures.setAll(textureInfo);
