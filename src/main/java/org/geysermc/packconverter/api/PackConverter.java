@@ -29,6 +29,7 @@ package org.geysermc.packconverter.api;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import lombok.Getter;
 import lombok.Setter;
+import org.geysermc.packconverter.api.utils.CustomModelData;
 import org.geysermc.packconverter.api.utils.OnLogListener;
 import org.geysermc.packconverter.api.utils.ZipUtils;
 import org.geysermc.packconverter.api.converters.AbstractConverter;
@@ -54,17 +55,13 @@ public class PackConverter {
     private final Path tmpDir;
 
     @Getter
-    private final Map<String, Int2ObjectMap<String>> customModelData = new HashMap<>();
-
-    @Getter @Setter
-    private BehaviorPack behaviorPack;
+    private final Map<String, Int2ObjectMap<CustomModelData>> customModelData = new HashMap<>();
 
     @Setter
     private OnLogListener onLogListener;
 
     public PackConverter(Path input, Path output) throws IOException {
         this.output = output;
-        this.behaviorPack = new BehaviorPack(this);
 
         // Load any image plugins
         ImageIO.scanForPlugins();
@@ -132,9 +129,6 @@ public class PackConverter {
         ZipUtils zipUtils = new ZipUtils(this, tmpDir.resolve("resources").toFile());
         zipUtils.generateFileList();
         zipUtils.zipIt(output.toString());
-        if (behaviorPack.isEnabled()) {
-            behaviorPack.pack();
-        }
     }
 
     /**

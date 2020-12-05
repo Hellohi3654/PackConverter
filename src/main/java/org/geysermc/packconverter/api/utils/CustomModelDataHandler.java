@@ -30,6 +30,8 @@ import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.nukkitx.nbt.NbtMap;
+import com.nukkitx.nbt.NbtMapBuilder;
 
 import java.io.*;
 import java.nio.file.Files;
@@ -38,7 +40,7 @@ import java.nio.file.StandardOpenOption;
 
 public class CustomModelDataHandler {
 
-    public static String handleItemData(ObjectMapper mapper, Path storage, String filePath) {
+    public static CustomModelData handleItemData(ObjectMapper mapper, Path storage, String filePath, JsonNode itemJsonInfo) {
         // Start the creation of the JSON that registers the object
         ObjectNode item = mapper.createObjectNode();
         // Standard JSON
@@ -52,10 +54,23 @@ public class CustomModelDataHandler {
         itemDescription.put("identifier", identifier);
         itemData.set("description", itemDescription);
         ObjectNode itemComponent = mapper.createObjectNode();
+        NbtMapBuilder componentBuilder = NbtMap.builder();
         // Define which texture in item_texture.json this should use. We just set it to the "clean identifier"
         itemComponent.put("minecraft:icon", identifier.replace("geysercmd:", ""));
+        NbtMapBuilder itemPropertiesBuilder = NbtMap.builder();
+        itemPropertiesBuilder.putBoolean("allow_off_hand", true); // We always want offhand to be accessible
+        itemPropertiesBuilder.putBoolean("hand_equipped", itemJsonInfo.get("hand_equipped").booleanValue());
+        itemPropertiesBuilder.putInt("max_stack_size", itemJsonInfo.get("max_stack_size").intValue());
         itemData.set("components", itemComponent);
+        componentBuilder.putCompound("item_properties", itemPropertiesBuilder.build());
         item.set("minecraft:item", itemData);
+
+        int maxDamage = itemJsonInfo.get("max_damage").asInt();
+        if (maxDamage != 0) {
+            componentBuilder.putCompound("minecraft:durability", NbtMap.builder().putInt("max_durability", maxDamage).build());
+        }
+
+        componentBuilder.putCompound("minecraft:icon", NbtMap.builder().putString("texture", identifier.replace("geysercmd:", "")).build());
 
         // Create, if necessary, the folder that stores all item information
         File itemJsonPath = storage.resolve("items").toFile();
@@ -72,8 +87,11 @@ public class CustomModelDataHandler {
             e.printStackTrace();
             return null;
         }
+        CustomModelData customModelData = new CustomModelData();
+        customModelData.setIdentifier(identifier);
+        customModelData.setNbt(componentBuilder.build());
 
-        return identifier;
+        return customModelData;
     }
 
     public static ObjectNode handleItemTexture(ObjectMapper mapper, Path storage, String filePath) {

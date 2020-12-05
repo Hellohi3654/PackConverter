@@ -86,7 +86,6 @@ public class MetadataConverter extends AbstractConverter {
             header.setUuid(UUID.randomUUID());
             header.setVersion(new int[] { 1, 0, 0});
             header.setMinimumSupportedMinecraftVersion(new int[] {1, 14, 0});
-            packConverter.getBehaviorPack().setResourcePackInfo(header);
 
             ResourcePackManifest.Module module = new ResourcePackManifest.Module();
             module.setDescription(packDesc);
@@ -97,7 +96,7 @@ public class MetadataConverter extends AbstractConverter {
             ResourcePackManifest manifest = new ResourcePackManifest();
             manifest.setFormatVersion(2);
             manifest.setHeader(header);
-            Collection<ResourcePackManifest.Module> modules = new ArrayList();
+            Collection<ResourcePackManifest.Module> modules = new ArrayList<>();
             modules.add(module);
             manifest.setModules(modules);
 
