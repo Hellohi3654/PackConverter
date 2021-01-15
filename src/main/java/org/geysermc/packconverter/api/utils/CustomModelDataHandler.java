@@ -40,7 +40,7 @@ import java.nio.file.StandardOpenOption;
 
 public class CustomModelDataHandler {
 
-    public static CustomModelData handleItemData(ObjectMapper mapper, Path storage, String filePath, JsonNode itemJsonInfo) {
+    public static CustomModelData handleItemData(ObjectMapper mapper, Path storage, String filePath, JsonNode itemJsonInfo, JsonNode predicate) {
         // Start the creation of the JSON that registers the object
         ObjectNode item = mapper.createObjectNode();
         // Standard JSON
@@ -49,21 +49,25 @@ public class CustomModelDataHandler {
         ObjectNode itemDescription = mapper.createObjectNode();
 
         // Full identifier with geysercmd prefix (cmd for CustomModelData - just in case it clashes with something we do in the future)
-        String identifier = "geysercmd:" + filePath.replace("item/", "");
+        String identifier = "geysercmd:" + filePath.substring(filePath.lastIndexOf("/") + 1);
         // Register the full identifier
         itemDescription.put("identifier", identifier);
         itemData.set("description", itemDescription);
-        ObjectNode itemComponent = mapper.createObjectNode();
         NbtMapBuilder componentBuilder = NbtMap.builder();
-        // Define which texture in item_texture.json this should use. We just set it to the "clean identifier"
-        itemComponent.put("minecraft:icon", identifier.replace("geysercmd:", ""));
         NbtMapBuilder itemPropertiesBuilder = NbtMap.builder();
         itemPropertiesBuilder.putBoolean("allow_off_hand", true); // We always want offhand to be accessible
         itemPropertiesBuilder.putBoolean("hand_equipped", itemJsonInfo.get("hand_equipped").booleanValue());
         itemPropertiesBuilder.putInt("max_stack_size", itemJsonInfo.get("max_stack_size").intValue());
-        itemData.set("components", itemComponent);
+
         componentBuilder.putCompound("item_properties", itemPropertiesBuilder.build());
         item.set("minecraft:item", itemData);
+
+        JsonNode pulling = predicate.get("pulling");
+        if (pulling != null) {
+            //itemPropertiesBuilder.putInt("use_animation", 1);
+            componentBuilder.putString("minecraft:render_offsets", "miscellaneous");
+            componentBuilder.putString("minecraft:use_animation", "bow");
+        }
 
         int maxDamage = itemJsonInfo.get("max_damage").asInt();
         if (maxDamage != 0) {
@@ -72,6 +76,11 @@ public class CustomModelDataHandler {
 
         componentBuilder.putCompound("minecraft:icon", NbtMap.builder().putString("texture", identifier.replace("geysercmd:", "")).build());
 
+        ObjectNode itemComponent = mapper.createObjectNode();
+        // Define which texture in item_texture.json this should use. We just set it to the "clean identifier"
+        itemComponent.put("minecraft:icon", identifier.replace("geysercmd:", ""));
+        itemData.set("components", itemComponent);
+
         // Create, if necessary, the folder that stores all item information
         File itemJsonPath = storage.resolve("items").toFile();
         if (!itemJsonPath.exists()) {
@@ -79,7 +88,7 @@ public class CustomModelDataHandler {
         }
 
         // Write our item information
-        Path path = itemJsonPath.toPath().resolve(filePath.replace("item/", "") + ".json");
+        Path path = itemJsonPath.toPath().resolve(filePath.substring(filePath.lastIndexOf("/") + 1) + ".json");
         try (OutputStream outputStream = Files.newOutputStream(path,
                 StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.CREATE)) {
             mapper.writer(new DefaultPrettyPrinter()).writeValue(outputStream, item);
@@ -94,14 +103,29 @@ public class CustomModelDataHandler {
         return customModelData;
     }
 
-    public static ObjectNode handleItemTexture(ObjectMapper mapper, Path storage, String filePath) {
-        String cleanIdentifier = filePath.replace("item/", "");
+    private static NbtMap buildCompoundValue(Object value) {
+        NbtMapBuilder builder = NbtMap.builder();
+        builder.put("value", value);
+        return builder.build();
+    }
 
-        InputStream stream;
+    public static ObjectNode handleItemTexture(ObjectMapper mapper, Path storage, String filePath) {
+        String cleanIdentifier = filePath.substring(filePath.lastIndexOf("/") + 1);
+
         JsonNode textureFile;
-        try {
+        File textureFilePath;
+        if (filePath.contains(":")) {
+            String[] namespaceSplit = filePath.split(":");
+            textureFilePath = storage.resolve("assets/" + namespaceSplit[0] + "/models/" + namespaceSplit[1] + ".json").toFile();
+        } else {
+            textureFilePath = storage.resolve("assets/minecraft/models/" + filePath + ".json").toFile();
+        }
+        if (!textureFilePath.exists()) {
+            System.out.println("No texture file found at " + textureFilePath + "; we were given " + filePath);
+            return null;
+        }
+        try (InputStream stream = new FileInputStream(textureFilePath)) {
             // Read the model information for the Java CustomModelData
-            stream = new FileInputStream(storage.resolve("assets/minecraft/models/" + filePath + ".json").toFile());
             textureFile = mapper.readTree(stream);
         } catch (IOException e) {
             e.printStackTrace();
@@ -115,7 +139,40 @@ public class CustomModelDataHandler {
                 ObjectNode textureData = mapper.createObjectNode();
                 ObjectNode textureName = mapper.createObjectNode();
                 // Make JSON data for Bedrock pointing to where texture data for this item is stored
-                textureName.put("textures", textureFile.get("textures").get(determine).textValue().replace("item/", "textures/items/"));
+                String textureString = textureFile.get("textures").get(determine).textValue();
+                if (textureString.contains(":")) {
+                    String[] namespaceSplit = textureString.split(":");
+                    String texturePath = "assets/" + namespaceSplit[0] + "/textures/" + namespaceSplit[1];
+                    String restOfTheTexturePath = namespaceSplit[1].substring(0, namespaceSplit[1].lastIndexOf("/"));
+                    if (!namespaceSplit[0].equals("minecraft")) {
+                        File namespaceFile = storage.resolve("textures/" + namespaceSplit[0] + "/" + restOfTheTexturePath).toFile();
+                        if (!namespaceFile.exists()) {
+                            //noinspection ResultOfMethodCallIgnored
+                            namespaceFile.mkdirs();
+                        }
+                        try {
+                            // Copy from the original location to a new place in the resource pack
+                            // For example: /assets/itemsadder/textures/item/crystal.png to textures/itemsadder/item/crystal.png
+                            Files.copy(storage.resolve(texturePath + ".png"), namespaceFile.toPath().resolve(namespaceSplit[1].substring(namespaceSplit[1].lastIndexOf("/") + 1) + ".png"));
+                            textureName.put("textures", "textures/" + namespaceSplit[0] + "/" +  namespaceSplit[1]);
+                            // Have the identifier point to that texture data
+                            textureData.set(cleanIdentifier, textureName);
+                            return textureData;
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                            return null;
+                        }
+                    } else {
+                        return null;
+                    }
+                }
+
+                if (textureString.startsWith("item/")) {
+                    textureString = textureString.replace("item/", "textures/items/");
+                } else {
+                    textureString = "textures/" + textureString;
+                }
+                textureName.put("textures", textureString);
                 // Have the identifier point to that texture data
                 textureData.set(cleanIdentifier, textureName);
                 return textureData;

@@ -81,7 +81,29 @@ public class CustomModelDataConverter extends AbstractConverter {
             textureData.put("resource_pack_name", "geysercmd");
             textureData.put("texture_name", "atlas.items");
             ObjectNode allTextures = mapper.createObjectNode();
-            for (File file : storage.resolve(from).toFile().listFiles()) {
+            handleCustomModelData(itemInformation, allTextures, mapper, storage.resolve(from).toFile());
+
+            textureData.set("texture_data", allTextures);
+
+            if (!packConverter.getCustomModelData().isEmpty()) {
+                // We have custom model data, so let's write the textures
+                OutputStream outputStream = Files.newOutputStream(storage.resolve(to), StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.CREATE);
+                mapper.writer(new DefaultPrettyPrinter()).writeValue(outputStream, textureData);
+            }
+            packConverter.log(String.format("Converted models %s", from));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return new ArrayList<>();
+    }
+
+    private void handleCustomModelData(JsonNode itemInformation, ObjectNode allTextures, ObjectMapper mapper, File directory) {
+        for (File file : directory.listFiles()) {
+            try {
+                if (!file.isFile()) {
+                    handleCustomModelData(itemInformation, allTextures, mapper, file);
+                }
                 InputStream stream = new FileInputStream(file);
 
                 JsonNode node = mapper.readTree(stream);
@@ -89,18 +111,28 @@ public class CustomModelDataConverter extends AbstractConverter {
                     JsonNode itemJsonInfo = itemInformation.get(file.getName().replace(".json", ""));
                     if (itemJsonInfo == null) {
                         System.out.println("No item information for " + file.getName().replace(".json", ""));
-                        return new ArrayList<>();
+                        return;
                     }
                     for (JsonNode override : node.get("overrides")) {
                         JsonNode predicate = override.get("predicate");
+                        JsonNode pulling = predicate.get("pulling");
+                        //if (pulling != null && pulling.asInt() != 0) {
+                        if (pulling != null) { //FIXME: Don't translate bows or they are otherwise non-functional for Bedrock
+                            // Animation for bow handled for the core bow item
+                            continue;
+                        }
                         // This is where the custom model data happens - each one is registered here under "predicate"
                         if (predicate.has("custom_model_data")) {
                             String filePath = override.get("model").asText();
+                            if (filePath.startsWith("minecraft:")) {
+                                // We don't need this lol
+                                continue;
+                            }
                             // The "ID" of the CustomModelData. If the ID is 1, then to get the custom model data
                             // You need to run in Java `/give @s stick{CustomModelData:1}`
                             int id = predicate.get("custom_model_data").asInt();
                             // Get the identifier that we'll register the item with on Bedrock, and create the JSON file
-                            CustomModelData customModelData = CustomModelDataHandler.handleItemData(mapper, storage, filePath, itemJsonInfo);
+                            CustomModelData customModelData = CustomModelDataHandler.handleItemData(mapper, storage, filePath, itemJsonInfo, predicate);
                             // See if we have registered the vanilla item already
                             Int2ObjectMap<CustomModelData> data = packConverter.getCustomModelData().getOrDefault(file.getName().replace(".json", ""), null);
                             //packConverter.getBehaviorPack().writeBehaviorPackItem(mapper, filePath, itemJsonInfo);
@@ -120,24 +152,15 @@ public class CustomModelDataConverter extends AbstractConverter {
                             if (textureInfo != null) {
                                 // If texture was created, add it to the file where Bedrock will read all textures
                                 allTextures.setAll(textureInfo);
+                            } else {
+                                System.out.println("No texture for " + filePath);
                             }
                         }
                     }
                 }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
-
-            textureData.set("texture_data", allTextures);
-
-            if (!packConverter.getCustomModelData().isEmpty()) {
-                // We have custom model data, so let's write the textures
-                OutputStream outputStream = Files.newOutputStream(storage.resolve(to), StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.CREATE);
-                mapper.writer(new DefaultPrettyPrinter()).writeValue(outputStream, textureData);
-            }
-            packConverter.log(String.format("Converted models %s", from));
-        } catch (Exception e) {
-            e.printStackTrace();
         }
-
-        return new ArrayList<>();
     }
 }
