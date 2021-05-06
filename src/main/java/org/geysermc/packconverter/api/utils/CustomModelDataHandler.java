@@ -40,7 +40,7 @@ import java.nio.file.StandardOpenOption;
 
 public class CustomModelDataHandler {
 
-    public static CustomModelData handleItemData(ObjectMapper mapper, Path storage, String filePath, JsonNode itemJsonInfo, JsonNode predicate) {
+    public static CustomModelData handleItemData(ObjectMapper mapper, Path storage, String originalItemName, String filePath, JsonNode itemJsonInfo, JsonNode predicate) {
         // Start the creation of the JSON that registers the object
         ObjectNode item = mapper.createObjectNode();
         // Standard JSON
@@ -49,7 +49,9 @@ public class CustomModelDataHandler {
         ObjectNode itemDescription = mapper.createObjectNode();
 
         // Full identifier with geysercmd prefix (cmd for CustomModelData - just in case it clashes with something we do in the future)
-        String identifier = "geysercmd:" + filePath.substring(filePath.lastIndexOf("/") + 1);
+        //String identifier = "geysercmd:" + filePath.substring(filePath.lastIndexOf("/") + 1);
+        // Add the original item name as well to prevent conflicts if multiple items share the same model
+        String identifier = "geysercmd:" + originalItemName + "/" + filePath;
         // Register the full identifier
         itemDescription.put("identifier", identifier);
         itemData.set("description", itemDescription);
@@ -74,7 +76,8 @@ public class CustomModelDataHandler {
             componentBuilder.putCompound("minecraft:durability", NbtMap.builder().putInt("max_durability", maxDamage).build());
         }
 
-        componentBuilder.putCompound("minecraft:icon", NbtMap.builder().putString("texture", identifier.replace("geysercmd:", "")).build());
+        //TODO make sure there can't be duplicates here
+        componentBuilder.putCompound("minecraft:icon", NbtMap.builder().putString("texture", filePath.substring(filePath.lastIndexOf("/") + 1)).build());
 
         ObjectNode itemComponent = mapper.createObjectNode();
         // Define which texture in item_texture.json this should use. We just set it to the "clean identifier"

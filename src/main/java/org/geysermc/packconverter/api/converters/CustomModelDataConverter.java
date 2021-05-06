@@ -108,7 +108,8 @@ public class CustomModelDataConverter extends AbstractConverter {
 
                 JsonNode node = mapper.readTree(stream);
                 if (node.has("overrides")) {
-                    JsonNode itemJsonInfo = itemInformation.get(file.getName().replace(".json", ""));
+                    String originalItemName = file.getName().replace(".json", "");
+                    JsonNode itemJsonInfo = itemInformation.get(originalItemName);
                     if (itemJsonInfo == null) {
                         System.out.println("No item information for " + file.getName().replace(".json", ""));
                         return;
@@ -132,9 +133,9 @@ public class CustomModelDataConverter extends AbstractConverter {
                             // You need to run in Java `/give @s stick{CustomModelData:1}`
                             int id = predicate.get("custom_model_data").asInt();
                             // Get the identifier that we'll register the item with on Bedrock, and create the JSON file
-                            CustomModelData customModelData = CustomModelDataHandler.handleItemData(mapper, storage, filePath, itemJsonInfo, predicate);
+                            CustomModelData customModelData = CustomModelDataHandler.handleItemData(mapper, storage, originalItemName, filePath, itemJsonInfo, predicate);
                             // See if we have registered the vanilla item already
-                            Int2ObjectMap<CustomModelData> data = packConverter.getCustomModelData().getOrDefault(file.getName().replace(".json", ""), null);
+                            Int2ObjectMap<CustomModelData> data = packConverter.getCustomModelData().getOrDefault(originalItemName, null);
                             //packConverter.getBehaviorPack().writeBehaviorPackItem(mapper, filePath, itemJsonInfo);
                             if (data == null) {
                                 // Create a fresh map of Java CustomModelData IDs to Bedrock string identifiers
