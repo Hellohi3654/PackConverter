@@ -16,6 +16,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+    - uses: actions/labeler@v2
+      with:
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
     - name: Generate settings.xml for Maven Deploy
       # You may pin to the exact commit or the version.
       # uses: whelk-io/maven-settings-xml-action@f2ce02adb757b1118ab14604d2e8bdaafdb9bf92
