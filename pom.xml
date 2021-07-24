@@ -63,7 +63,7 @@
    	<repository>
      	<id>github</id>
      	<name>PackConverterHellohi3654</name>
-     	<url>https://maven.pkg.github.com/hellohi3654/Geyser</url>
+     	<url>https://maven.pkg.github.com/hellohi3654/PackConverter</url>
   	</repository>
     </distributionManagement>
 
