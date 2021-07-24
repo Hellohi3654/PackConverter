@@ -35,4 +35,4 @@ jobs:
         settings-path: ${{ github.workspace }} # location for the settings.xml file
 
     - name: Build with Maven Deploy
-      run: mvn deploy -T 2C
+      run: mvn javadoc:jar source:jar deploy -T 2C
