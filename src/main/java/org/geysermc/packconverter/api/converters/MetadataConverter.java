@@ -106,7 +106,7 @@ public class MetadataConverter extends AbstractConverter {
             ResourcePackManifest manifest = new ResourcePackManifest();
             manifest.setFormatVersion(2);
             manifest.setHeader(header);
-            Collection<ResourcePackManifest.Module> modules = new ArrayList();
+            Collection<ResourcePackManifest.Module> modules = new ArrayList<>();
             modules.add(module);
             manifest.setModules(modules);
 
