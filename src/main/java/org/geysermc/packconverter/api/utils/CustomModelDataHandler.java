@@ -29,12 +29,19 @@ package org.geysermc.packconverter.api.utils;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 
+@Getter
+@AllArgsConstructor
 public class CustomModelDataHandler {
 
     public static String handleItemData(ObjectMapper mapper, Path storage, String filePath) {
@@ -109,5 +116,8 @@ public class CustomModelDataHandler {
 
         return null;
     }
+
+	private final int dataId;
+    private final String identifier;
 
 }
