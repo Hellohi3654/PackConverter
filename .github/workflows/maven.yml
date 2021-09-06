@@ -35,4 +35,10 @@ jobs:
         settings-path: ${{ github.workspace }} # location for the settings.xml file
 
     - name: Build with Maven Deploy
-      run: mvn javadoc:jar source:jar deploy -T 2C
+      run: mvn clean install -T 2C
+    - name: Archive artifacts 
+      uses: actions/upload-artifact@v2
+      if: success()
+      with:
+        name: PACK
+        path: target/
